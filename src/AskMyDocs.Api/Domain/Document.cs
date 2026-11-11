@@ -24,7 +24,7 @@ public sealed class Document
         Id = Guid.NewGuid(),
         FileName = fileName,
         Status = DocumentStatus.Processing,
-        CreatedAt = DateTime.Now,
+        CreatedAt = DateTime.UtcNow,
     };
 
     public void MarkReady()
