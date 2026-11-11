@@ -1,44 +1,38 @@
-import { DecimalPipe } from '@angular/common';
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
-import { Api, describeError } from '../core/api';
-import { AskSource } from '../core/models';
 import { DocumentsStore } from '../documents/documents-store';
-import { AnswerBlock, formatAnswer } from './citations';
-
-interface Turn {
-  id: number;
-  question: string;
-  scope: string[];
-  status: 'pending' | 'done' | 'error';
-  blocks: AnswerBlock[];
-  sources: AskSource[];
-  error?: string;
-  highlighted?: number;
-}
+import { AskStore, Turn } from './ask-store';
 
 @Component({
   selector: 'app-ask-panel',
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule],
   templateUrl: './ask-panel.html',
   styleUrl: './ask-panel.scss',
 })
 export class AskPanel {
-  private readonly api = inject(Api);
+  protected readonly store = inject(AskStore);
   protected readonly documents = inject(DocumentsStore);
-  private readonly conversation = viewChild<ElementRef<HTMLElement>>('conversation');
+  private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
 
   protected readonly question = signal('');
-  protected readonly turns = signal<Turn[]>([]);
-  protected readonly busy = signal(false);
-  private nextId = 1;
+  protected readonly copiedTurn = signal<number | null>(null);
 
   protected readonly suggestions = [
     'Sobre o que é este documento?',
     'Faça um resumo dos pontos principais.',
     'Quais datas e prazos aparecem?',
   ];
+
+  constructor() {
+    // Follow the conversation as questions and answers arrive.
+    effect(() => {
+      this.store.turns();
+      setTimeout(() => {
+        const element = this.scroller()?.nativeElement;
+        element?.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+      });
+    });
+  }
 
   protected onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -47,75 +41,32 @@ export class AskPanel {
     }
   }
 
-  protected useSuggestion(text: string): void {
-    this.question.set(text);
-    this.submit();
-  }
-
-  protected async submit(): Promise<void> {
-    const question = this.question().trim();
-    if (!question || this.busy()) {
+  protected submit(text = this.question()): void {
+    if (!text.trim() || this.store.busy()) {
       return;
     }
-
-    const selected = this.documents.selectedDocuments();
-    const turn: Turn = {
-      id: this.nextId++,
-      question,
-      scope: selected.map(d => d.fileName),
-      status: 'pending',
-      blocks: [],
-      sources: [],
-    };
-
-    this.turns.update(turns => [...turns, turn]);
     this.question.set('');
-    this.busy.set(true);
-    this.scrollToBottom();
+    this.store.ask(text);
+  }
 
+  protected isOpen(turn: Turn, index: number): boolean {
+    const open = this.store.openSource();
+    return open?.turnId === turn.id && open.index === index;
+  }
+
+  protected summary(turn: Turn): string {
+    const sources = turn.sources.length;
+    const files = new Set(turn.sources.map(s => s.documentId)).size;
+    return `${sources} fonte${sources === 1 ? '' : 's'} · ${files} documento${files === 1 ? '' : 's'}`;
+  }
+
+  protected async copy(turn: Turn): Promise<void> {
     try {
-      const response = await firstValueFrom(
-        this.api.ask({
-          question,
-          documentIds: selected.length > 0 ? selected.map(d => d.id) : undefined,
-        }),
-      );
-      this.updateTurn(turn.id, {
-        status: 'done',
-        blocks: formatAnswer(response.answer),
-        sources: response.sources,
-      });
-    } catch (error) {
-      this.updateTurn(turn.id, { status: 'error', error: describeError(error) });
-    } finally {
-      this.busy.set(false);
-      this.scrollToBottom();
+      await navigator.clipboard.writeText(turn.answer);
+      this.copiedTurn.set(turn.id);
+      setTimeout(() => this.copiedTurn.set(null), 2000);
+    } catch {
+      // Clipboard can be blocked (e.g. http on another host); nothing else to do.
     }
-  }
-
-  protected showSource(turn: Turn, index: number): void {
-    this.updateTurn(turn.id, { highlighted: index });
-    document
-      .getElementById(this.sourceElementId(turn, index))
-      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
-  protected sourceElementId(turn: Turn, index: number): string {
-    return `turn-${turn.id}-source-${index}`;
-  }
-
-  protected clear(): void {
-    this.turns.set([]);
-  }
-
-  private updateTurn(id: number, changes: Partial<Turn>): void {
-    this.turns.update(turns => turns.map(t => (t.id === id ? { ...t, ...changes } : t)));
-  }
-
-  private scrollToBottom(): void {
-    setTimeout(() => {
-      const element = this.conversation()?.nativeElement;
-      element?.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
-    });
   }
 }

@@ -1,94 +1,106 @@
-<section class="panel ask" aria-labelledby="ask-title">
-  <header class="panel-header">
-    <h2 id="ask-title">Perguntas</h2>
-    @if (turns().length > 0) {
-      <button type="button" class="ghost" (click)="clear()" [disabled]="busy()">Limpar conversa</button>
-    }
-  </header>
-
-  <div class="conversation" #conversation aria-live="polite">
-    @for (turn of turns(); track turn.id) {
-      <article class="turn">
+<section class="panel" aria-label="Conversa">
+  <div class="scroller" #scroller>
+    <div class="thread" aria-live="polite">
+      @for (turn of store.turns(); track turn.id) {
         <div class="question">
           <p>{{ turn.question }}</p>
           @if (turn.scope.length > 0) {
-            <span class="scope">Em: {{ turn.scope.join(', ') }}</span>
+            <span class="question-scope">Em: {{ turn.scope.join(', ') }}</span>
           }
         </div>
 
-        @switch (turn.status) {
-          @case ('pending') {
-            <div class="answer pending">
-              <span class="spinner" aria-hidden="true"></span>
-              Procurando nos documentos e escrevendo a resposta...
-            </div>
-          }
-          @case ('error') {
-            <div class="answer error" role="alert">{{ turn.error }}</div>
-          }
-          @default {
-            <div class="answer">
-              <div class="answer-text">
-                @for (block of turn.blocks; track $index) {
-                  <p [class.item]="block.kind === 'item'">@for (segment of block.segments; track $index) {@if (segment.kind === 'text') {@if (segment.bold) {<strong>{{ segment.text }}</strong>} @else {<span>{{ segment.text }}</span>}} @else {<button type="button" class="citation" [class.active]="turn.highlighted === segment.index" [attr.aria-label]="'Ver fonte ' + segment.index" (click)="showSource(turn, segment.index)">{{ segment.index }}</button>}}</p>
-                }
-              </div>
+        <article class="answer" [class.error]="turn.status === 'error'">
+          <span class="avatar" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M7 4h7l4 4v12H7z" /><path d="M14 4v4h4" />
+            </svg>
+          </span>
 
-              @if (turn.sources.length > 0) {
-                <details class="sources" [open]="turn.highlighted !== undefined">
-                  <summary>Fontes ({{ turn.sources.length }})</summary>
-                  <ol>
-                    @for (source of turn.sources; track source.index) {
-                      <li
-                        [id]="sourceElementId(turn, source.index)"
-                        [class.active]="turn.highlighted === source.index"
-                      >
-                        <div class="source-head">
-                          <span class="source-index">{{ source.index }}</span>
-                          <span class="source-file" [title]="source.fileName">{{ source.fileName }}</span>
-                          <span class="source-page">pág. {{ source.pageNumber }}</span>
-                          <span class="source-score" title="Similaridade com a pergunta">
-                            {{ source.similarity * 100 | number: '1.0-0' }}%
-                          </span>
-                        </div>
-                        <p class="excerpt">{{ source.excerpt }}</p>
-                      </li>
-                    }
-                  </ol>
-                </details>
+          <div class="body">
+            @switch (turn.status) {
+              @case ('pending') {
+                <p class="thinking">
+                  <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                  Procurando nos documentos...
+                </p>
+              }
+              @case ('error') {
+                <p class="error-text" role="alert">{{ turn.error }}</p>
+              }
+              @default {
+                <div class="answer-text">
+                  @for (block of turn.blocks; track $index) {
+                    <p [class.item]="block.kind === 'item'">@for (segment of block.segments; track $index) {@if (segment.kind === 'text') {@if (segment.bold) {<strong>{{ segment.text }}</strong>} @else {<span>{{ segment.text }}</span>}} @else {<button type="button" class="citation" [class.active]="isOpen(turn, segment.index)" [attr.aria-pressed]="isOpen(turn, segment.index)" [attr.aria-label]="'Ver fonte ' + segment.index" (click)="store.showSource(turn.id, segment.index)">{{ segment.index }}</button>}}</p>
+                  }
+                </div>
+
+                <div class="actions">
+                  <button type="button" class="action" (click)="copy(turn)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V4H4v12h4" />
+                    </svg>
+                    {{ copiedTurn() === turn.id ? 'Copiado!' : 'Copiar resposta' }}
+                  </button>
+                  @if (turn.sources.length > 0) {
+                    <button type="button" class="action ghost" (click)="store.showSource(turn.id, turn.sources[0].index)">
+                      {{ summary(turn) }}
+                    </button>
+                  }
+                </div>
+              }
+            }
+          </div>
+        </article>
+      } @empty {
+        <div class="welcome">
+          <h1>O que você quer saber?</h1>
+          @if (documents.readyDocuments().length === 0) {
+            <p>Assim que um documento ficar pronto na biblioteca, pergunte sobre ele aqui.</p>
+          } @else {
+            <p>As respostas trazem citações. Clique nelas para ver o trecho e a página de onde saíram.</p>
+            <div class="suggestions">
+              @for (suggestion of suggestions; track suggestion) {
+                <button type="button" class="chip" (click)="submit(suggestion)">{{ suggestion }}</button>
               }
             </div>
           }
-        }
-      </article>
-    } @empty {
-      <div class="welcome">
-        @if (documents.readyDocuments().length === 0) {
-          <p>Envie um PDF ao lado. Quando ele ficar <strong>Pronto</strong>, faça perguntas sobre o conteúdo aqui.</p>
-        } @else {
-          <p>Pergunte qualquer coisa sobre os seus documentos. Algumas ideias:</p>
-          <div class="suggestions">
-            @for (suggestion of suggestions; track suggestion) {
-              <button type="button" class="chip" (click)="useSuggestion(suggestion)">{{ suggestion }}</button>
-            }
-          </div>
-        }
-      </div>
-    }
+        </div>
+      }
+    </div>
   </div>
 
   <form class="composer" (ngSubmit)="submit()">
-    <label class="sr-only" for="question">Sua pergunta</label>
-    <textarea
-      id="question"
-      name="question"
-      rows="2"
-      placeholder="Escreva sua pergunta... (Enter envia, Shift+Enter quebra linha)"
-      [ngModel]="question()"
-      (ngModelChange)="question.set($event)"
-      (keydown)="onKeydown($event)"
-      [disabled]="busy()"
-    ></textarea>
-    <button type="submit" class="primary" [disabled]="busy() || !question().trim()">Perguntar</button>
+    <div class="box">
+      <label class="sr-only" for="question">Sua pergunta</label>
+      <textarea
+        id="question"
+        name="question"
+        rows="2"
+        placeholder="Pergunte algo sobre seus documentos..."
+        [ngModel]="question()"
+        (ngModelChange)="question.set($event)"
+        (keydown)="onKeydown($event)"
+      ></textarea>
+      <div class="box-footer">
+        <span class="scope-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4h7l4 4v12H7z" /></svg>
+          @if (documents.selectedIds().size > 0) {
+            {{ documents.selectedIds().size }} documento{{ documents.selectedIds().size > 1 ? 's' : '' }}
+          } @else {
+            Todos os documentos
+          }
+        </span>
+        @if (store.turns().length > 0) {
+          <button type="button" class="link clear" (click)="store.clear()" [disabled]="store.busy()">Limpar conversa</button>
+        }
+        <span class="spacer"></span>
+        <span class="hint">Enter envia</span>
+        <button type="submit" class="send" aria-label="Enviar pergunta" [disabled]="store.busy() || !question().trim()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 19V5M6 11l6-6 6 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
   </form>
 </section>

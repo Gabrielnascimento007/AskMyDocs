@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { DocumentDto, DocumentStatus } from '../core/models';
+import { Component, inject } from '@angular/core';
+import { DocumentDto } from '../core/models';
 import { DocumentsStore } from './documents-store';
 
 @Component({
@@ -9,33 +9,16 @@ import { DocumentsStore } from './documents-store';
   templateUrl: './documents-panel.html',
   styleUrl: './documents-panel.scss',
 })
-export class DocumentsPanel implements OnInit {
+export class DocumentsPanel {
   protected readonly store = inject(DocumentsStore);
-  protected readonly dragging = signal(false);
-
-  protected readonly statusLabels: Record<DocumentStatus, string> = {
-    Processing: 'Processando',
-    Ready: 'Pronto',
-    Failed: 'Falhou',
-  };
-
-  ngOnInit(): void {
-    this.store.refresh();
-  }
 
   protected onFilesPicked(input: HTMLInputElement): void {
     this.store.upload(Array.from(input.files ?? []));
     input.value = '';
   }
 
-  protected onDragOver(event: DragEvent): void {
-    event.preventDefault();
-    this.dragging.set(true);
-  }
-
   protected onDrop(event: DragEvent): void {
     event.preventDefault();
-    this.dragging.set(false);
     this.store.upload(Array.from(event.dataTransfer?.files ?? []));
   }
 

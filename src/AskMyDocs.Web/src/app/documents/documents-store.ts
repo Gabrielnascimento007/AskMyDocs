@@ -13,6 +13,10 @@ export class DocumentsStore {
 
   readonly documents = signal<DocumentDto[]>([]);
   readonly loading = signal(false);
+  /** True once the first list request finished (successfully or not). */
+  readonly loaded = signal(false);
+  /** Whether the last call to the API reached it. */
+  readonly connected = signal(true);
   readonly uploading = signal(0);
   readonly error = signal<string | null>(null);
 
@@ -32,6 +36,7 @@ export class DocumentsStore {
       const documents = await firstValueFrom(this.api.listDocuments());
       this.documents.set(documents);
       this.error.set(null);
+      this.connected.set(true);
       this.dropStaleSelection(documents);
 
       // Keep refreshing while something is still being processed in the background.
@@ -40,8 +45,10 @@ export class DocumentsStore {
       }
     } catch (error) {
       this.error.set(describeError(error));
+      this.connected.set(false);
     } finally {
       this.loading.set(false);
+      this.loaded.set(true);
     }
   }
 

@@ -1,0 +1,49 @@
+<main class="onboarding">
+  <div class="content">
+    <div class="intro">
+      <h1>Pergunte aos seus PDFs.</h1>
+      <p>Envie manuais, contratos ou relatórios. As respostas vêm com a página exata de onde cada informação saiu.</p>
+    </div>
+
+    <label
+      class="dropzone"
+      [class.dragging]="dragging()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="dragging.set(false)"
+      (drop)="onDrop($event)"
+    >
+      <input #fileInput type="file" accept="application/pdf,.pdf" multiple (change)="onFilesPicked(fileInput)" />
+      <span class="icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V4M6 10l6-6 6 6M4 20h16" />
+        </svg>
+      </span>
+      <span class="title">Arraste PDFs para cá</span>
+      <span class="sub">ou <span class="fake-link">escolha arquivos</span> · até 20 MB cada</span>
+    </label>
+
+    @if (store.error(); as error) {
+      <p class="alert" role="alert">{{ error }}</p>
+    }
+
+    <ol class="steps">
+      <li>
+        <span class="number">01</span>
+        <span class="step-title">Envie</span>
+        <span class="step-text">PDFs com texto selecionável. Escaneados ainda não são lidos.</span>
+      </li>
+      <li>
+        <span class="number">02</span>
+        <span class="step-title">Espere ficar pronto</span>
+        <span class="step-text">O arquivo é dividido em trechos e indexado em segundo plano.</span>
+      </li>
+      <li>
+        <span class="number">03</span>
+        <span class="step-title">Pergunte</span>
+        <span class="step-text">Clique nas citações para ver o trecho e a página da resposta.</span>
+      </li>
+    </ol>
+
+    <p class="note">No plano gratuito do Gemini, o Google pode usar o conteúdo enviado. Evite documentos confidenciais.</p>
+  </div>
+</main>

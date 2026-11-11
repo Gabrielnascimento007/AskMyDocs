@@ -1,57 +1,191 @@
 :host {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
 }
 
 .topbar {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 28px;
   background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.menu-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  max-width: 1200px;
-  margin: 0 auto;
+  gap: 10px;
+  min-width: 0;
+}
 
-  h1 {
-    margin: 0;
-    font-size: 1.25rem;
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.scope {
+  display: none;
+  font-size: 12px;
+  color: var(--subtle);
+}
+
+.spacer {
+  flex-grow: 1;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success-dot);
   }
 
-  p {
-    margin: 2px 0 0;
-    font-size: 0.875rem;
-    color: var(--text-muted);
+  &.offline {
+    background: var(--danger-soft);
+    color: var(--danger);
+
+    .dot {
+      background: var(--danger);
+    }
   }
 }
 
-.logo {
-  font-size: 1.75rem;
-}
-
-.layout {
+.workspace {
+  position: relative;
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(280px, 380px) 1fr;
-  gap: 20px;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px 24px;
-  box-sizing: border-box;
+  min-height: 0;
+  display: flex;
 }
 
+.library {
+  flex: 0 0 300px;
+  min-height: 0;
+}
+
+.conversation {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.source {
+  flex: 0 0 380px;
+  min-height: 0;
+}
+
+.scrim {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border: none;
+  padding: 0;
+  background: rgba(21, 32, 30, 0.32);
+  cursor: pointer;
+}
+
+// Narrow desktop: the source panel floats over the conversation.
+@media (max-width: 1100px) {
+  .source {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 11;
+    width: min(380px, 100%);
+    box-shadow: -12px 0 32px rgba(21, 32, 30, 0.14);
+  }
+
+  .source-scrim {
+    display: block;
+  }
+}
+
+// Phone: the library is a drawer and the source a bottom sheet.
 @media (max-width: 800px) {
   .topbar {
-    padding: 12px 16px;
+    padding: 10px 16px;
   }
 
-  .layout {
-    grid-template-columns: 1fr;
-    padding: 16px;
+  .menu-button {
+    display: inline-flex;
+  }
+
+  .scope {
+    display: block;
+  }
+
+  .status {
+    padding: 6px;
+
+    // Keep only the dot on small screens; the text stays for screen readers.
+    font-size: 0;
+  }
+
+  .library {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 11;
+    width: min(320px, 88%);
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    box-shadow: 12px 0 32px rgba(21, 32, 30, 0.14);
+
+    &.open {
+      transform: none;
+    }
+  }
+
+  .library-scrim {
+    display: block;
+  }
+
+  .source {
+    top: auto;
+    left: 0;
+    width: 100%;
+    max-height: 78%;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -8px 24px rgba(21, 32, 30, 0.14);
   }
 }
