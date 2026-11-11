@@ -1,0 +1,43 @@
+@if (details(); as d) {
+  <aside class="panel" aria-labelledby="source-title">
+    <span class="grabber" aria-hidden="true"></span>
+
+    <div class="head">
+      <span class="badge" aria-hidden="true">{{ d.source.index }}</span>
+      <h2 id="source-title">Fonte {{ d.source.index }}</h2>
+      <button type="button" class="icon-button" aria-label="Fechar fonte" (click)="store.closeSource()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="file">
+      <span class="file-name" [title]="d.source.fileName">{{ d.source.fileName }}</span>
+      <span class="file-meta">
+        <span>Página {{ d.source.pageNumber }}</span>
+        <span>Similaridade {{ d.source.similarity * 100 | number: '1.0-0' }}%</span>
+      </span>
+    </div>
+
+    <blockquote class="excerpt">{{ d.source.excerpt }}</blockquote>
+
+    <div class="steps">
+      <button type="button" class="step" [disabled]="position().first" (click)="store.stepSource(-1)">Fonte anterior</button>
+      <button type="button" class="step primary" [disabled]="position().last" (click)="store.stepSource(1)">Próxima fonte</button>
+    </div>
+
+    @if (others().length > 0) {
+      <div class="others">
+        <span class="others-title">Outras fontes desta resposta</span>
+        @for (source of others(); track source.index) {
+          <button type="button" class="other" (click)="store.showSource(d.turn.id, source.index)">
+            <span class="badge small" aria-hidden="true">{{ source.index }}</span>
+            <span class="other-name">{{ source.fileName }}</span>
+            <span class="other-page">pág. {{ source.pageNumber }}</span>
+          </button>
+        }
+      </div>
+    }
+  </aside>
+}

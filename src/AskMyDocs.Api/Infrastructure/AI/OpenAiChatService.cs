@@ -3,10 +3,14 @@ using OpenAI.Chat;
 
 namespace AskMyDocs.Api.Infrastructure.AI;
 
-public sealed class OpenAiChatService(IOptions<OpenAiOptions> options) : IChatService
+/// <summary>Chat completions through any OpenAI-compatible API (Gemini, OpenAI, ...).</summary>
+public sealed class OpenAiChatService(IOptions<AiOptions> options) : IChatService
 {
     private readonly Lazy<ChatClient> _client = new(() =>
-        new ChatClient(options.Value.ChatModel, options.Value.GetApiKey()));
+    {
+        var (credential, clientOptions) = options.Value.CreateClientSettings();
+        return new ChatClient(options.Value.ChatModel, credential, clientOptions);
+    });
 
     public async Task<string> CompleteAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default)
     {

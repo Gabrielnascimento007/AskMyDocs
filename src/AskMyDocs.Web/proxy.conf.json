@@ -1,0 +1,12 @@
+{
+  "/documents": {
+    "target": "https://localhost:7135",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/ask": {
+    "target": "https://localhost:7135",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

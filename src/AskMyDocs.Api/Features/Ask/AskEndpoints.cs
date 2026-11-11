@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json.Nodes;
+using AskMyDocs.Api.Domain;
 using AskMyDocs.Api.Infrastructure.AI;
 using AskMyDocs.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -38,14 +40,25 @@ public static class AskEndpoints
         """;
 
     private static readonly AskResponse NothingIndexed = new(
-        "There are no indexed documents to search yet. Upload a PDF and wait until its status is Ready.",
+        "Ainda não há documentos indexados para pesquisar. Envie um PDF e espere o status dele ficar Ready.",
         []);
 
     public static IEndpointRouteBuilder MapAskEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/ask", Ask)
-            .WithTags("Ask")
-            .WithSummary("Ask a question about the uploaded documents.");
+            .WithTags("Perguntas")
+            .WithSummary("Faz uma pergunta sobre os documentos enviados.")
+            .AddOpenApiOperationTransformer((operation, _, _) =>
+            {
+                // Without an explicit example, API clients like Scalar prefill documentIds with a
+                // made-up id, which restricts the search to a document that doesn't exist.
+                if (operation.RequestBody?.Content?.TryGetValue("application/json", out var mediaType) == true)
+                {
+                    mediaType.Example = new JsonObject { ["question"] = "Sobre o que é este documento?" };
+                }
+
+                return Task.CompletedTask;
+            });
 
         return app;
     }
@@ -63,16 +76,22 @@ public static class AskEndpoints
         var errors = new Dictionary<string, string[]>();
         if (question.Length == 0)
         {
-            errors["question"] = ["The question is required."];
+            errors["question"] = ["A pergunta é obrigatória."];
         }
         else if (question.Length > MaxQuestionLength)
         {
-            errors["question"] = [$"The question must have at most {MaxQuestionLength} characters."];
+            errors["question"] = [$"A pergunta pode ter no máximo {MaxQuestionLength} caracteres."];
         }
 
         if (topK is < 1 or > MaxTopK)
         {
-            errors["topK"] = [$"topK must be between 1 and {MaxTopK}."];
+            errors["topK"] = [$"topK precisa estar entre 1 e {MaxTopK}."];
+        }
+
+        if (request.DocumentIds is { Length: > 0 } requestedIds
+            && await ValidateDocumentIdsAsync(db, requestedIds, cancellationToken) is { } documentIdsError)
+        {
+            errors["documentIds"] = [documentIdsError];
         }
 
         if (errors.Count > 0)
@@ -125,6 +144,44 @@ public static class AskEndpoints
 
         return TypedResults.Ok(new AskResponse(answer, sources));
     }
+
+    /// <summary>
+    /// Explains why a documentIds filter cannot return anything (unknown ids, or none Ready),
+    /// instead of answering as if nothing had been uploaded at all.
+    /// </summary>
+    private static async Task<string?> ValidateDocumentIdsAsync(
+        AppDbContext db,
+        Guid[] documentIds,
+        CancellationToken cancellationToken)
+    {
+        var found = await db.Documents
+            .Where(d => documentIds.Contains(d.Id))
+            .Select(d => new { d.Id, d.FileName, d.Status })
+            .ToListAsync(cancellationToken);
+
+        var missing = documentIds.Distinct().Except(found.Select(d => d.Id)).ToList();
+        if (missing.Count > 0)
+        {
+            return $"Documento(s) não encontrado(s): {string.Join(", ", missing)}. " +
+                   "Remova o documentIds para pesquisar em todos os documentos, ou use ids do GET /documents.";
+        }
+
+        if (!found.Any(d => d.Status == DocumentStatus.Ready))
+        {
+            var statuses = string.Join(", ", found.Select(d => $"{d.FileName} ({DescribeStatus(d.Status)})"));
+            return $"Nenhum dos documentos escolhidos está pronto para pesquisa: {statuses}.";
+        }
+
+        return null;
+    }
+
+    private static string DescribeStatus(DocumentStatus status) => status switch
+    {
+        DocumentStatus.Ready => "pronto",
+        DocumentStatus.Processing => "ainda processando",
+        DocumentStatus.Failed => "falhou",
+        _ => status.ToString()
+    };
 
     private static string BuildUserPrompt(string question, IReadOnlyList<AskSource> sources)
     {

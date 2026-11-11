@@ -55,7 +55,7 @@ public sealed class IngestionWorker(
             if (pieces.Count == 0)
             {
                 throw new InvalidOperationException(
-                    "No extractable text found in the PDF (it may be a scanned image).");
+                    "Não foi encontrado texto no PDF (ele pode ser uma imagem escaneada, que não é suportada).");
             }
 
             var vectors = await embeddings.EmbedBatchAsync(

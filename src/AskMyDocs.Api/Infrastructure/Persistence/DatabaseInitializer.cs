@@ -21,7 +21,7 @@ public static class DatabaseInitializer
             .Where(d => d.Status == DocumentStatus.Processing)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(d => d.Status, DocumentStatus.Failed)
-                .SetProperty(d => d.ErrorMessage, "Processing was interrupted by an application restart. Please upload the file again."));
+                .SetProperty(d => d.ErrorMessage, "O processamento foi interrompido porque a API reiniciou. Envie o arquivo de novo."));
 
         if (interrupted > 0)
         {

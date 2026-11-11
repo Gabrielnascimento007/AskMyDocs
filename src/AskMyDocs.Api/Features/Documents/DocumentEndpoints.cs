@@ -20,14 +20,14 @@ public static class DocumentEndpoints
 
     public static IEndpointRouteBuilder MapDocumentEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/documents").WithTags("Documents");
+        var group = app.MapGroup("/documents").WithTags("Documentos");
 
         group.MapPost("/", Upload)
             .DisableAntiforgery()
-            .WithSummary("Upload a PDF to be indexed. Processing happens in the background.");
-        group.MapGet("/", List).WithSummary("List uploaded documents.");
-        group.MapGet("/{id:guid}", GetById).WithSummary("Get a document and its processing status.");
-        group.MapDelete("/{id:guid}", Delete).WithSummary("Delete a document and its chunks.");
+            .WithSummary("Envia um PDF para ser indexado. O processamento acontece em segundo plano.");
+        group.MapGet("/", List).WithSummary("Lista os documentos enviados.");
+        group.MapGet("/{id:guid}", GetById).WithSummary("Consulta um documento e o status do processamento.");
+        group.MapDelete("/{id:guid}", Delete).WithSummary("Remove um documento e seus trechos.");
 
         return app;
     }
@@ -40,12 +40,12 @@ public static class DocumentEndpoints
     {
         if (file.Length == 0)
         {
-            return FileError("The file is empty.");
+            return FileError("O arquivo está vazio.");
         }
 
         if (file.Length > MaxFileSizeBytes)
         {
-            return FileError($"The file exceeds the {MaxFileSizeBytes / 1024 / 1024} MB limit.");
+            return FileError($"O arquivo passa do limite de {MaxFileSizeBytes / 1024 / 1024} MB.");
         }
 
         using var buffer = new MemoryStream();
@@ -54,7 +54,7 @@ public static class DocumentEndpoints
 
         if (!IsPdf(bytes))
         {
-            return FileError("Only PDF files are supported.");
+            return FileError("Só arquivos PDF são aceitos.");
         }
 
         var document = Document.Create(Path.GetFileName(file.FileName));

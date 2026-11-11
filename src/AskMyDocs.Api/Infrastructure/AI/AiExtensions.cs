@@ -1,10 +1,13 @@
+using System.ClientModel;
+using OpenAI;
+
 namespace AskMyDocs.Api.Infrastructure.AI;
 
 public static class AiExtensions
 {
-    public static IServiceCollection AddOpenAi(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddAi(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
+        services.Configure<AiOptions>(configuration.GetSection(AiOptions.SectionName));
 
         services.AddSingleton<IEmbeddingService, OpenAiEmbeddingService>();
         services.AddSingleton<IChatService, OpenAiChatService>();
@@ -13,21 +16,24 @@ public static class AiExtensions
     }
 
     /// <summary>
-    /// Resolves the API key from configuration (user secrets) or the OPENAI_API_KEY variable.
-    /// Called lazily, on the first OpenAI request, so the API can start and serve
-    /// non-AI endpoints even when the key has not been configured yet.
+    /// Builds the SDK credential and client options. Called lazily, on the first AI request,
+    /// so the API can start and serve non-AI endpoints even when the key is not configured yet.
     /// </summary>
-    internal static string GetApiKey(this OpenAiOptions options)
+    internal static (ApiKeyCredential Credential, OpenAIClientOptions ClientOptions) CreateClientSettings(this AiOptions options)
     {
-        var apiKey = options.ApiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (string.IsNullOrWhiteSpace(options.ApiKey))
         {
             throw new InvalidOperationException(
-                "OpenAI API key is not configured. Run `dotnet user-secrets set \"OpenAI:ApiKey\" \"<your-key>\"` " +
-                "in src/AskMyDocs.Api or set the OPENAI_API_KEY environment variable.");
+                "A chave da API de IA não está configurada. Rode `dotnet user-secrets set \"AI:ApiKey\" \"<sua-chave>\"` em src/AskMyDocs.Api " +
+                "(para o Gemini, crie uma chave gratuita em https://aistudio.google.com/apikey).");
         }
 
-        return apiKey;
+        var clientOptions = new OpenAIClientOptions();
+        if (!string.IsNullOrWhiteSpace(options.Endpoint))
+        {
+            clientOptions.Endpoint = new Uri(options.Endpoint);
+        }
+
+        return (new ApiKeyCredential(options.ApiKey), clientOptions);
     }
 }

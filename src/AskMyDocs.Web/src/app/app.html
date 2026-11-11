@@ -1,0 +1,57 @@
+<header class="topbar">
+  @if (!showOnboarding()) {
+    <button
+      type="button"
+      class="menu-button"
+      aria-label="Abrir biblioteca"
+      [attr.aria-expanded]="libraryOpen()"
+      (click)="libraryOpen.set(!libraryOpen())"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M4 6h16M4 12h16M4 18h10" />
+      </svg>
+    </button>
+  }
+
+  <div class="brand">
+    <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="5" y="3" width="18" height="24" rx="3" fill="none" stroke="var(--accent)" stroke-width="2" />
+      <path d="M10 10h8M10 15h8M10 20h4" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" />
+      <circle cx="23" cy="22" r="5" fill="var(--surface)" stroke="var(--ink)" stroke-width="2" />
+      <path d="M26.5 25.5l3 3" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" />
+    </svg>
+    <div class="brand-text">
+      <span class="wordmark">AskMyDocs</span>
+      @if (!showOnboarding()) {
+        <span class="scope">{{ scopeLabel() }}</span>
+      }
+    </div>
+  </div>
+
+  <span class="spacer"></span>
+
+  @if (documents.loaded()) {
+    <span class="status" [class.offline]="!documents.connected()">
+      <span class="dot" aria-hidden="true"></span>
+      {{ documents.connected() ? 'API conectada' : 'API fora do ar' }}
+    </span>
+  }
+</header>
+
+@if (showOnboarding()) {
+  <app-onboarding />
+} @else {
+  <div class="workspace" [class.source-open]="ask.openSource() !== null">
+    <app-documents-panel class="library" [class.open]="libraryOpen()" />
+    @if (libraryOpen()) {
+      <button type="button" class="scrim library-scrim" aria-label="Fechar biblioteca" (click)="libraryOpen.set(false)"></button>
+    }
+
+    <app-ask-panel class="conversation" />
+
+    @if (ask.openSource() !== null) {
+      <button type="button" class="scrim source-scrim" aria-label="Fechar fonte" (click)="ask.closeSource()"></button>
+      <app-source-panel class="source" />
+    }
+  </div>
+}
