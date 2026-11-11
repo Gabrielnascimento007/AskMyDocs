@@ -1,7 +1,3 @@
-using Microsoft.Extensions.Options;
-using OpenAI.Chat;
-using OpenAI.Embeddings;
-
 namespace AskMyDocs.Api.Infrastructure.AI;
 
 public static class AiExtensions
@@ -10,27 +6,18 @@ public static class AiExtensions
     {
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
 
-        // Clients are created lazily so the API can start (and serve non-AI endpoints)
-        // even when the key has not been configured yet.
-        services.AddSingleton(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
-            return new EmbeddingClient(options.EmbeddingModel, GetApiKey(options));
-        });
-
-        services.AddSingleton(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
-            return new ChatClient(options.ChatModel, GetApiKey(options));
-        });
-
         services.AddSingleton<IEmbeddingService, OpenAiEmbeddingService>();
         services.AddSingleton<IChatService, OpenAiChatService>();
 
         return services;
     }
 
-    private static string GetApiKey(OpenAiOptions options)
+    /// <summary>
+    /// Resolves the API key from configuration (user secrets) or the OPENAI_API_KEY variable.
+    /// Called lazily, on the first OpenAI request, so the API can start and serve
+    /// non-AI endpoints even when the key has not been configured yet.
+    /// </summary>
+    internal static string GetApiKey(this OpenAiOptions options)
     {
         var apiKey = options.ApiKey ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
 

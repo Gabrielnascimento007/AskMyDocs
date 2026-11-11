@@ -17,7 +17,16 @@ public sealed class IngestionWorker(
     {
         await foreach (var job in queue.ReadAllAsync(stoppingToken))
         {
-            await ProcessAsync(job, stoppingToken);
+            try
+            {
+                await ProcessAsync(job, stoppingToken);
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                // Never let one bad job (or a database hiccup) stop the worker,
+                // otherwise the host shuts down the whole API.
+                logger.LogError(ex, "Unexpected error while processing document {DocumentId}", job.DocumentId);
+            }
         }
     }
 
@@ -25,7 +34,6 @@ public sealed class IngestionWorker(
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var embeddings = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
 
         var document = await db.Documents.FindAsync([job.DocumentId], cancellationToken);
         if (document is null)
@@ -36,6 +44,9 @@ public sealed class IngestionWorker(
 
         try
         {
+            // Resolved inside the try: creating the OpenAI client throws when the key is missing.
+            var embeddings = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
+
             var pieces = PdfTextExtractor.ExtractPages(job.PdfBytes)
                 .SelectMany(page => TextChunker.Split(page.Text)
                     .Select(content => (page.Number, Content: content)))

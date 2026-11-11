@@ -37,6 +37,10 @@ public static class AskEndpoints
         - Answer in the same language as the question.
         """;
 
+    private static readonly AskResponse NothingIndexed = new(
+        "There are no indexed documents to search yet. Upload a PDF and wait until its status is Ready.",
+        []);
+
     public static IEndpointRouteBuilder MapAskEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/ask", Ask)
@@ -76,13 +80,19 @@ public static class AskEndpoints
             return TypedResults.ValidationProblem(errors);
         }
 
-        var questionVector = new Vector(await embeddings.EmbedAsync(question, cancellationToken));
-
         var chunks = db.Chunks.AsNoTracking();
         if (request.DocumentIds is { Length: > 0 } documentIds)
         {
             chunks = chunks.Where(c => documentIds.Contains(c.DocumentId));
         }
+
+        // Skip the (paid) embedding call when there is nothing to search.
+        if (!await chunks.AnyAsync(cancellationToken))
+        {
+            return TypedResults.Ok(NothingIndexed);
+        }
+
+        var questionVector = new Vector(await embeddings.EmbedAsync(question, cancellationToken));
 
         var hits = await chunks
             .Select(c => new
@@ -95,13 +105,6 @@ public static class AskEndpoints
             .OrderBy(c => c.Distance)
             .Take(topK)
             .ToListAsync(cancellationToken);
-
-        if (hits.Count == 0)
-        {
-            return TypedResults.Ok(new AskResponse(
-                "There are no indexed documents to search yet. Upload a PDF and wait until its status is Ready.",
-                []));
-        }
 
         var hitDocumentIds = hits.Select(h => h.DocumentId).Distinct().ToList();
         var fileNames = await db.Documents
