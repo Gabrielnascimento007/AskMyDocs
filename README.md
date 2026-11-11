@@ -42,7 +42,7 @@ flowchart LR
 
 | Área | Tecnologia |
 | --- | --- |
-| API | ASP.NET Core 10 Minimal APIs, OpenAPI |
+| API | ASP.NET Core 10 Minimal APIs, OpenAPI, Scalar |
 | Banco de dados | PostgreSQL 17 + [pgvector](https://github.com/pgvector/pgvector), EF Core 10, Npgsql |
 | IA | [OpenAI .NET SDK](https://github.com/openai/openai-dotnet): `text-embedding-3-small` (embeddings), `gpt-4.1-mini` (respostas) |
 | PDF | [PdfPig](https://github.com/UglyToad/PdfPig) |
@@ -82,6 +82,8 @@ dotnet run --project src/AskMyDocs.Api
 ```
 
 A API escuta em `http://localhost:5261`. Em Development, as migrations do EF Core são aplicadas automaticamente na inicialização, e o documento OpenAPI fica disponível em `/openapi/v1.json`.
+
+Abra **http://localhost:5261** no navegador: a raiz redireciona para o [Scalar](https://scalar.com) (`/scalar`), uma página interativa onde dá para enviar PDFs e fazer perguntas sem precisar de `curl`. Pelo Visual Studio, ela já abre automaticamente.
 
 ## Uso
 
