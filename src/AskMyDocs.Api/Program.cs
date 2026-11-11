@@ -22,7 +22,12 @@ var app = builder.Build();
 
 await app.InitializeDatabaseAsync();
 
-app.UseExceptionHandler();
+// In Development the developer exception page (added automatically) returns the exception
+// type, message and stack trace. Elsewhere, errors are reduced to a generic Problem Details.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler();
+}
 
 if (app.Environment.IsDevelopment())
 {
