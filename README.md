@@ -2,7 +2,7 @@
 
 Faça perguntas sobre seus PDFs e receba respostas baseadas no conteúdo deles, com citação do arquivo e da página exatos.
 
-O AskMyDocs é uma API de **RAG (Retrieval-Augmented Generation)** construída com **.NET 10**, **PostgreSQL + pgvector** e **OpenAI**. Você envia um PDF; ele é dividido em trechos, convertido em embeddings e indexado. Quando você faz uma pergunta, os trechos mais relevantes são recuperados por similaridade vetorial e o modelo responde **usando apenas esses trechos**.
+O AskMyDocs é uma API de **RAG (Retrieval-Augmented Generation)** construída com **.NET 10**, **PostgreSQL + pgvector** e **Google Gemini** (plano gratuito). Funciona com qualquer API compatível com a da OpenAI, então dá para trocar de provedor só pela configuração. Você envia um PDF; ele é dividido em trechos, convertido em embeddings e indexado. Quando você faz uma pergunta, os trechos mais relevantes são recuperados por similaridade vetorial e o modelo responde **usando apenas esses trechos**.
 
 ## Funcionalidades
 
@@ -24,7 +24,7 @@ flowchart LR
         Q --> W[Worker em background]
         W --> P[Extrai o texto de cada página<br/>PdfPig]
         P --> C[Divide em trechos com sobreposição]
-        C --> E[Gera embeddings<br/>text-embedding-3-small]
+        C --> E[Gera embeddings<br/>gemini-embedding-001]
         E --> V[(chunks + vector 1536)]
         W --> R[status: Ready / Failed]
     end
@@ -44,7 +44,7 @@ flowchart LR
 | --- | --- |
 | API | ASP.NET Core 10 Minimal APIs, OpenAPI, Scalar |
 | Banco de dados | PostgreSQL 17 + [pgvector](https://github.com/pgvector/pgvector), EF Core 10, Npgsql |
-| IA | [OpenAI .NET SDK](https://github.com/openai/openai-dotnet): `text-embedding-3-small` (embeddings), `gpt-4.1-mini` (respostas) |
+| IA | [Google Gemini](https://aistudio.google.com) pela API compatível com a OpenAI, usando o [OpenAI .NET SDK](https://github.com/openai/openai-dotnet): `gemini-embedding-001` (embeddings), `gemini-3.5-flash-lite` (respostas) |
 | PDF | [PdfPig](https://github.com/UglyToad/PdfPig) |
 | Processamento em background | `System.Threading.Channels` + `BackgroundService` |
 | Testes | xUnit |
@@ -55,7 +55,7 @@ flowchart LR
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Docker](https://www.docker.com/) (para o PostgreSQL com pgvector)
-- Uma [chave de API da OpenAI](https://platform.openai.com/api-keys)
+- Uma [chave de API do Gemini](https://aistudio.google.com/apikey) (gratuita, basta uma conta Google)
 
 ### 1. Suba o banco de dados
 
@@ -65,13 +65,17 @@ docker compose up -d
 
 Isso sobe o `pgvector/pgvector:pg17` na **porta 5433 do host** (para não conflitar com um PostgreSQL instalado localmente na 5432). A connection string de desenvolvimento em `appsettings.Development.json` já aponta para ele.
 
-### 2. Configure sua chave da OpenAI
+### 2. Configure sua chave do Gemini
+
+Crie uma chave gratuita em [Google AI Studio](https://aistudio.google.com/apikey) e salve nos user secrets:
 
 ```bash
-dotnet user-secrets set "OpenAI:ApiKey" "sk-..." --project src/AskMyDocs.Api
+dotnet user-secrets set "AI:ApiKey" "SUA-CHAVE" --project src/AskMyDocs.Api
 ```
 
-Outra opção é definir a variável de ambiente `OPENAI_API_KEY`.
+Outra opção é definir a variável de ambiente `AI__ApiKey`.
+
+> **Plano gratuito do Gemini:** tem limite de requisições por minuto e por dia, e o Google pode usar o conteúdo enviado para melhorar os modelos. Não envie documentos confidenciais nesse plano.
 
 > **Atenção:** os user secrets têm prioridade sobre o `appsettings.Development.json`. Se existir um secret `ConnectionStrings:Default` (por exemplo, apontando para um banco hospedado), ele será usado no lugar do banco do Docker. Confira com `dotnet user-secrets list --project src/AskMyDocs.Api`.
 
@@ -157,9 +161,24 @@ Erros de validação são retornados como `400` no formato [Problem Details](htt
 | Chave | Padrão | Descrição |
 | --- | --- | --- |
 | `ConnectionStrings:Default` | Banco do Docker (Development) | Connection string do PostgreSQL. |
-| `OpenAI:ApiKey` | — | Chave da API da OpenAI (ou `OPENAI_API_KEY`). |
-| `OpenAI:ChatModel` | `gpt-4.1-mini` | Modelo que escreve as respostas. |
-| `OpenAI:EmbeddingModel` | `text-embedding-3-small` | Modelo de embeddings (vetores de 1536 dimensões). |
+| `AI:Endpoint` | API do Gemini compatível com a OpenAI | Endereço da API. Deixe vazio para usar a própria OpenAI. |
+| `AI:ApiKey` | — | Chave da API (ou `AI__ApiKey`). |
+| `AI:ChatModel` | `gemini-3.5-flash-lite` | Modelo que escreve as respostas. |
+| `AI:EmbeddingModel` | `gemini-embedding-001` | Modelo de embeddings (gera vetores de 1536 dimensões). |
+| `AI:EmbeddingBatchSize` | `64` | Quantos trechos vão em cada requisição de embeddings. |
+
+### Usando a OpenAI no lugar do Gemini
+
+Basta trocar a configuração; o código é o mesmo:
+
+```bash
+dotnet user-secrets set "AI:Endpoint" "" --project src/AskMyDocs.Api
+dotnet user-secrets set "AI:ApiKey" "sk-..." --project src/AskMyDocs.Api
+dotnet user-secrets set "AI:ChatModel" "gpt-4.1-mini" --project src/AskMyDocs.Api
+dotnet user-secrets set "AI:EmbeddingModel" "text-embedding-3-small" --project src/AskMyDocs.Api
+```
+
+Os PDFs enviados com um provedor precisam ser enviados de novo depois da troca, porque os embeddings de modelos diferentes não são comparáveis.
 
 ## Estrutura do projeto
 
@@ -171,7 +190,7 @@ src/AskMyDocs.Api
 │   └── Ask/                    # Endpoint de busca + geração da resposta
 ├── Ingestion/                  # Extração do PDF, divisão em trechos, fila e worker
 └── Infrastructure/
-    ├── AI/                     # Serviços de embeddings e chat da OpenAI
+    ├── AI/                     # Embeddings e chat (API compatível com a OpenAI)
     └── Persistence/            # DbContext, configurações do EF e migrations
 tests/AskMyDocs.Api.Tests       # Testes unitários (divisão em trechos, extração de PDF)
 ```

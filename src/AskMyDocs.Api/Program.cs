@@ -15,7 +15,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services
     .AddPersistence(builder.Configuration)
-    .AddOpenAi(builder.Configuration)
+    .AddAi(builder.Configuration)
     .AddIngestion();
 
 var app = builder.Build();
