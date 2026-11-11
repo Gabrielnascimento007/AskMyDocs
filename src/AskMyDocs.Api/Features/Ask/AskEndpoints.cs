@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json.Nodes;
+using AskMyDocs.Api.Domain;
 using AskMyDocs.Api.Infrastructure.AI;
 using AskMyDocs.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -45,7 +47,18 @@ public static class AskEndpoints
     {
         app.MapPost("/ask", Ask)
             .WithTags("Ask")
-            .WithSummary("Ask a question about the uploaded documents.");
+            .WithSummary("Ask a question about the uploaded documents.")
+            .AddOpenApiOperationTransformer((operation, _, _) =>
+            {
+                // Without an explicit example, API clients like Scalar prefill documentIds with a
+                // made-up id, which restricts the search to a document that doesn't exist.
+                if (operation.RequestBody?.Content?.TryGetValue("application/json", out var mediaType) == true)
+                {
+                    mediaType.Example = new JsonObject { ["question"] = "Sobre o que é este documento?" };
+                }
+
+                return Task.CompletedTask;
+            });
 
         return app;
     }
@@ -73,6 +86,12 @@ public static class AskEndpoints
         if (topK is < 1 or > MaxTopK)
         {
             errors["topK"] = [$"topK must be between 1 and {MaxTopK}."];
+        }
+
+        if (request.DocumentIds is { Length: > 0 } requestedIds
+            && await ValidateDocumentIdsAsync(db, requestedIds, cancellationToken) is { } documentIdsError)
+        {
+            errors["documentIds"] = [documentIdsError];
         }
 
         if (errors.Count > 0)
@@ -124,6 +143,36 @@ public static class AskEndpoints
         var answer = await chat.CompleteAsync(SystemPrompt, BuildUserPrompt(question, sources), cancellationToken);
 
         return TypedResults.Ok(new AskResponse(answer, sources));
+    }
+
+    /// <summary>
+    /// Explains why a documentIds filter cannot return anything (unknown ids, or none Ready),
+    /// instead of answering as if nothing had been uploaded at all.
+    /// </summary>
+    private static async Task<string?> ValidateDocumentIdsAsync(
+        AppDbContext db,
+        Guid[] documentIds,
+        CancellationToken cancellationToken)
+    {
+        var found = await db.Documents
+            .Where(d => documentIds.Contains(d.Id))
+            .Select(d => new { d.Id, d.FileName, d.Status })
+            .ToListAsync(cancellationToken);
+
+        var missing = documentIds.Distinct().Except(found.Select(d => d.Id)).ToList();
+        if (missing.Count > 0)
+        {
+            return $"Document(s) not found: {string.Join(", ", missing)}. " +
+                   "Remove documentIds to search all documents, or use ids from GET /documents.";
+        }
+
+        if (!found.Any(d => d.Status == DocumentStatus.Ready))
+        {
+            var statuses = string.Join(", ", found.Select(d => $"{d.FileName} ({d.Status})"));
+            return $"None of the selected documents is Ready to be searched: {statuses}.";
+        }
+
+        return null;
     }
 
     private static string BuildUserPrompt(string question, IReadOnlyList<AskSource> sources)
