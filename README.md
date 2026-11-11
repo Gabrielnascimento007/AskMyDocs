@@ -165,7 +165,7 @@ Erros de validação são retornados como `400` no formato [Problem Details](htt
 | `AI:ApiKey` | — | Chave da API (ou `AI__ApiKey`). |
 | `AI:ChatModel` | `gemini-3.5-flash-lite` | Modelo que escreve as respostas. |
 | `AI:EmbeddingModel` | `gemini-embedding-001` | Modelo de embeddings (gera vetores de 1536 dimensões). |
-| `AI:EmbeddingBatchSize` | `64` | Quantos trechos vão em cada requisição de embeddings. |
+| `AI:EmbeddingBatchSize` | `16` | Quantos trechos vão em cada requisição de embeddings. Pequeno para não estourar o limite por minuto do plano gratuito. |
 
 ### Usando a OpenAI no lugar do Gemini
 

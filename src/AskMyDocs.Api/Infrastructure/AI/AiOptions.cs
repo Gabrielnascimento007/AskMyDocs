@@ -18,6 +18,9 @@ public sealed class AiOptions
     public string ChatModel { get; set; } = string.Empty;
     public string EmbeddingModel { get; set; } = string.Empty;
 
-    /// <summary>Texts sent per embedding request.</summary>
-    public int EmbeddingBatchSize { get; set; } = 64;
+    /// <summary>
+    /// Texts sent per embedding request. Kept small so one request stays well under
+    /// Gemini's free tier limit of 30,000 embedding tokens per minute.
+    /// </summary>
+    public int EmbeddingBatchSize { get; set; } = 16;
 }

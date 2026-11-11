@@ -5,7 +5,9 @@ using OpenAI.Embeddings;
 namespace AskMyDocs.Api.Infrastructure.AI;
 
 /// <summary>Embeddings through any OpenAI-compatible API (Gemini, OpenAI, ...).</summary>
-public sealed class OpenAiEmbeddingService(IOptions<AiOptions> options) : IEmbeddingService
+public sealed class OpenAiEmbeddingService(
+    IOptions<AiOptions> options,
+    ILogger<OpenAiEmbeddingService> logger) : IEmbeddingService
 {
     private static readonly EmbeddingGenerationOptions GenerationOptions = new()
     {
@@ -30,7 +32,11 @@ public sealed class OpenAiEmbeddingService(IOptions<AiOptions> options) : IEmbed
 
         foreach (var batch in texts.Chunk(Math.Max(1, options.Value.EmbeddingBatchSize)))
         {
-            var result = await _client.Value.GenerateEmbeddingsAsync(batch, GenerationOptions, cancellationToken);
+            // Ingestion runs in the background, so on a rate limit (429) it is fine to wait and retry.
+            var result = await RateLimitRetry.ExecuteAsync(
+                () => _client.Value.GenerateEmbeddingsAsync(batch, GenerationOptions, cancellationToken),
+                logger,
+                cancellationToken);
             embeddings.AddRange(result.Value
                 .OrderBy(e => e.Index)
                 .Select(e => EnsureDimensions(e.ToFloats().ToArray())));
