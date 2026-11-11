@@ -1,0 +1,94 @@
+<section class="panel ask" aria-labelledby="ask-title">
+  <header class="panel-header">
+    <h2 id="ask-title">Perguntas</h2>
+    @if (turns().length > 0) {
+      <button type="button" class="ghost" (click)="clear()" [disabled]="busy()">Limpar conversa</button>
+    }
+  </header>
+
+  <div class="conversation" #conversation aria-live="polite">
+    @for (turn of turns(); track turn.id) {
+      <article class="turn">
+        <div class="question">
+          <p>{{ turn.question }}</p>
+          @if (turn.scope.length > 0) {
+            <span class="scope">Em: {{ turn.scope.join(', ') }}</span>
+          }
+        </div>
+
+        @switch (turn.status) {
+          @case ('pending') {
+            <div class="answer pending">
+              <span class="spinner" aria-hidden="true"></span>
+              Procurando nos documentos e escrevendo a resposta...
+            </div>
+          }
+          @case ('error') {
+            <div class="answer error" role="alert">{{ turn.error }}</div>
+          }
+          @default {
+            <div class="answer">
+              <div class="answer-text">
+                @for (block of turn.blocks; track $index) {
+                  <p [class.item]="block.kind === 'item'">@for (segment of block.segments; track $index) {@if (segment.kind === 'text') {@if (segment.bold) {<strong>{{ segment.text }}</strong>} @else {<span>{{ segment.text }}</span>}} @else {<button type="button" class="citation" [class.active]="turn.highlighted === segment.index" [attr.aria-label]="'Ver fonte ' + segment.index" (click)="showSource(turn, segment.index)">{{ segment.index }}</button>}}</p>
+                }
+              </div>
+
+              @if (turn.sources.length > 0) {
+                <details class="sources" [open]="turn.highlighted !== undefined">
+                  <summary>Fontes ({{ turn.sources.length }})</summary>
+                  <ol>
+                    @for (source of turn.sources; track source.index) {
+                      <li
+                        [id]="sourceElementId(turn, source.index)"
+                        [class.active]="turn.highlighted === source.index"
+                      >
+                        <div class="source-head">
+                          <span class="source-index">{{ source.index }}</span>
+                          <span class="source-file" [title]="source.fileName">{{ source.fileName }}</span>
+                          <span class="source-page">pág. {{ source.pageNumber }}</span>
+                          <span class="source-score" title="Similaridade com a pergunta">
+                            {{ source.similarity * 100 | number: '1.0-0' }}%
+                          </span>
+                        </div>
+                        <p class="excerpt">{{ source.excerpt }}</p>
+                      </li>
+                    }
+                  </ol>
+                </details>
+              }
+            </div>
+          }
+        }
+      </article>
+    } @empty {
+      <div class="welcome">
+        @if (documents.readyDocuments().length === 0) {
+          <p>Envie um PDF ao lado. Quando ele ficar <strong>Pronto</strong>, faça perguntas sobre o conteúdo aqui.</p>
+        } @else {
+          <p>Pergunte qualquer coisa sobre os seus documentos. Algumas ideias:</p>
+          <div class="suggestions">
+            @for (suggestion of suggestions; track suggestion) {
+              <button type="button" class="chip" (click)="useSuggestion(suggestion)">{{ suggestion }}</button>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <form class="composer" (ngSubmit)="submit()">
+    <label class="sr-only" for="question">Sua pergunta</label>
+    <textarea
+      id="question"
+      name="question"
+      rows="2"
+      placeholder="Escreva sua pergunta... (Enter envia, Shift+Enter quebra linha)"
+      [ngModel]="question()"
+      (ngModelChange)="question.set($event)"
+      (keydown)="onKeydown($event)"
+      [disabled]="busy()"
+    ></textarea>
+    <button type="submit" class="primary" [disabled]="busy() || !question().trim()">Perguntar</button>
+  </form>
+</section>

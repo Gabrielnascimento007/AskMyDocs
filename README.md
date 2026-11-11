@@ -42,18 +42,20 @@ flowchart LR
 
 | Área | Tecnologia |
 | --- | --- |
+| Front-end | Angular 21 (componentes standalone, signals) |
 | API | ASP.NET Core 10 Minimal APIs, OpenAPI, Scalar |
 | Banco de dados | PostgreSQL 17 + [pgvector](https://github.com/pgvector/pgvector), EF Core 10, Npgsql |
 | IA | [Google Gemini](https://aistudio.google.com) pela API compatível com a OpenAI, usando o [OpenAI .NET SDK](https://github.com/openai/openai-dotnet): `gemini-embedding-001` (embeddings), `gemini-3.5-flash-lite` (respostas) |
 | PDF | [PdfPig](https://github.com/UglyToad/PdfPig) |
 | Processamento em background | `System.Threading.Channels` + `BackgroundService` |
-| Testes | xUnit |
+| Testes | xUnit (API), Vitest (front) |
 
 ## Como rodar
 
 ### Pré-requisitos
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Node.js](https://nodejs.org/) 22.12 ou mais novo (para o front)
 - [Docker](https://www.docker.com/) (para o PostgreSQL com pgvector)
 - Uma [chave de API do Gemini](https://aistudio.google.com/apikey) (gratuita, basta uma conta Google)
 
@@ -88,6 +90,23 @@ dotnet run --project src/AskMyDocs.Api
 A API escuta em `http://localhost:5261`. Em Development, as migrations do EF Core são aplicadas automaticamente na inicialização, e o documento OpenAPI fica disponível em `/openapi/v1.json`.
 
 Abra **http://localhost:5261** no navegador: a raiz redireciona para o [Scalar](https://scalar.com) (`/scalar`), uma página interativa onde dá para enviar PDFs e fazer perguntas sem precisar de `curl`. Pelo Visual Studio, ela já abre automaticamente.
+
+### 4. Rode o front-end
+
+Com a API rodando no perfil **https** (o padrão do Visual Studio, ou `dotnet run --project src/AskMyDocs.Api --launch-profile https`):
+
+```bash
+cd src/AskMyDocs.Web
+npm install
+npm start
+```
+
+Abra **http://localhost:4200**. A tela tem dois painéis:
+
+- **Documentos:** envie PDFs (clicando ou arrastando), acompanhe o status (atualiza sozinho enquanto processa), remova e marque sobre quais documentos perguntar.
+- **Perguntas:** faça perguntas em forma de conversa. As citações `[1]`, `[2]` da resposta são clicáveis e mostram o trecho e a página de onde a informação saiu.
+
+O servidor de desenvolvimento do Angular repassa as chamadas para a API (`proxy.conf.json`, apontando para `https://localhost:7135`), então não é preciso configurar CORS. Se a sua API estiver em outro endereço, ajuste esse arquivo.
 
 ## Uso
 
@@ -183,6 +202,11 @@ Os PDFs enviados com um provedor precisam ser enviados de novo depois da troca, 
 ## Estrutura do projeto
 
 ```
+src/AskMyDocs.Web               # Front-end Angular
+└── src/app/
+    ├── core/                   # Chamadas à API e modelos
+    ├── documents/              # Painel de documentos e estado compartilhado
+    └── ask/                    # Painel de perguntas e formatação da resposta
 src/AskMyDocs.Api
 ├── Domain/                     # Entidades Document e Chunk
 ├── Features/
@@ -192,13 +216,14 @@ src/AskMyDocs.Api
 └── Infrastructure/
     ├── AI/                     # Embeddings e chat (API compatível com a OpenAI)
     └── Persistence/            # DbContext, configurações do EF e migrations
-tests/AskMyDocs.Api.Tests       # Testes unitários (divisão em trechos, extração de PDF)
+tests/AskMyDocs.Api.Tests       # Testes unitários da API
 ```
 
 ## Rodando os testes
 
 ```bash
-dotnet test
+dotnet test                              # API
+cd src/AskMyDocs.Web && npm test         # front-end
 ```
 
 ## Limitações e próximos passos
@@ -207,4 +232,4 @@ dotnet test
 - **Sem OCR:** PDFs escaneados (só imagem) não têm texto extraível e terminam como `Failed`.
 - **Sem autenticação:** qualquer pessoa que chama a API vê todos os documentos.
 - **Perguntas isoladas:** ainda não há histórico de conversa.
-- Melhorias possíveis: streaming das respostas, busca híbrida (texto completo + vetorial), reranking e uma interface web simples.
+- Melhorias possíveis: streaming das respostas, busca híbrida (texto completo + vetorial) e reranking.

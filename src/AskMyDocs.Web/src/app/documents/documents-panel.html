@@ -1,0 +1,90 @@
+<section class="panel" aria-labelledby="documents-title">
+  <header class="panel-header">
+    <h2 id="documents-title">Documentos</h2>
+    <button type="button" class="ghost" (click)="store.refresh()" [disabled]="store.loading()">
+      Atualizar
+    </button>
+  </header>
+
+  <label
+    class="dropzone"
+    [class.dragging]="dragging()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="dragging.set(false)"
+    (drop)="onDrop($event)"
+  >
+    <input #fileInput type="file" accept="application/pdf,.pdf" multiple (change)="onFilesPicked(fileInput)" />
+    @if (store.uploading() > 0) {
+      <span class="spinner" aria-hidden="true"></span>
+      <strong>Enviando...</strong>
+    } @else {
+      <strong>Enviar PDF</strong>
+      <span>Clique ou arraste arquivos aqui</span>
+    }
+  </label>
+
+  @if (store.error(); as error) {
+    <p class="alert" role="alert">
+      {{ error }}
+      <button type="button" class="link" (click)="store.error.set(null)">Fechar</button>
+    </p>
+  }
+
+  @if (store.readyDocuments().length > 0) {
+    <p class="hint">
+      @if (store.selectedIds().size === 0) {
+        Marque documentos para perguntar só sobre eles. Sem marcação, a busca usa todos os prontos.
+      } @else {
+        Perguntando sobre {{ store.selectedIds().size }} documento(s).
+        <button type="button" class="link" (click)="store.clearSelection()">Usar todos</button>
+      }
+    </p>
+  }
+
+  <ul class="documents">
+    @for (document of store.documents(); track document.id) {
+      <li class="document" [class.selected]="store.selectedIds().has(document.id)">
+        <input
+          type="checkbox"
+          [attr.aria-label]="'Perguntar sobre ' + document.fileName"
+          [checked]="store.selectedIds().has(document.id)"
+          [disabled]="document.status !== 'Ready'"
+          (change)="store.toggleSelection(document.id)"
+        />
+
+        <div class="info">
+          <span class="name" [title]="document.fileName">{{ document.fileName }}</span>
+          <span class="meta">
+            <span class="badge" [class]="'badge ' + document.status.toLowerCase()">
+              @if (document.status === 'Processing') {
+                <span class="spinner small" aria-hidden="true"></span>
+              }
+              {{ statusLabels[document.status] }}
+            </span>
+            @if (document.status === 'Ready') {
+              <span>{{ document.chunkCount }} trechos</span>
+            }
+            <span>{{ document.createdAt | date: 'dd/MM HH:mm' }}</span>
+          </span>
+          @if (document.status === 'Failed' && document.errorMessage) {
+            <span class="failure">{{ document.errorMessage }}</span>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="icon"
+          [attr.aria-label]="'Remover ' + document.fileName"
+          title="Remover"
+          (click)="confirmRemove(document)"
+        >
+          ✕
+        </button>
+      </li>
+    } @empty {
+      @if (!store.loading()) {
+        <li class="empty">Nenhum documento ainda. Envie um PDF para começar.</li>
+      }
+    }
+  </ul>
+</section>
