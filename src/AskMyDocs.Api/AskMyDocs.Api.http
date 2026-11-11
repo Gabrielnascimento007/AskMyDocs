@@ -1,6 +1,40 @@
-@AskMyDocs.Api_HostAddress = http://localhost:5261
+@baseUrl = http://localhost:5261
+@documentId = 00000000-0000-0000-0000-000000000000
 
-GET {{AskMyDocs.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Upload a PDF (adjust the path to a file on your machine)
+POST {{baseUrl}}/documents
+Content-Type: multipart/form-data; boundary=boundary
 
-###
+--boundary
+Content-Disposition: form-data; name="file"; filename="sample.pdf"
+Content-Type: application/pdf
+
+< ./sample.pdf
+--boundary--
+
+### List documents
+GET {{baseUrl}}/documents
+
+### Get one document (check its status)
+GET {{baseUrl}}/documents/{{documentId}}
+
+### Ask a question across all documents
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{
+  "question": "What is this document about?"
+}
+
+### Ask a question restricted to specific documents
+POST {{baseUrl}}/ask
+Content-Type: application/json
+
+{
+  "question": "What are the main conclusions?",
+  "documentIds": ["{{documentId}}"],
+  "topK": 8
+}
+
+### Delete a document
+DELETE {{baseUrl}}/documents/{{documentId}}
