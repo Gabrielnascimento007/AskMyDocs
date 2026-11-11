@@ -9,7 +9,23 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
+{
+    // Keep the exception type as the title on the Development error page; translate the rest.
+    if (context.Exception is not null && context.HttpContext.RequestServices
+            .GetRequiredService<IWebHostEnvironment>().IsDevelopment())
+    {
+        return;
+    }
+
+    context.ProblemDetails.Title = context.ProblemDetails.Status switch
+    {
+        StatusCodes.Status400BadRequest => "A requisição tem dados inválidos.",
+        StatusCodes.Status404NotFound => "Não encontrado.",
+        StatusCodes.Status500InternalServerError => "Ocorreu um erro ao processar a requisição.",
+        _ => context.ProblemDetails.Title
+    };
+});
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 

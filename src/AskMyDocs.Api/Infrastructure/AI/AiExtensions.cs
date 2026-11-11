@@ -24,8 +24,8 @@ public static class AiExtensions
         if (string.IsNullOrWhiteSpace(options.ApiKey))
         {
             throw new InvalidOperationException(
-                "AI API key is not configured. Run `dotnet user-secrets set \"AI:ApiKey\" \"<your-key>\"` in src/AskMyDocs.Api " +
-                "(for Gemini, create a free key at https://aistudio.google.com/apikey).");
+                "A chave da API de IA não está configurada. Rode `dotnet user-secrets set \"AI:ApiKey\" \"<sua-chave>\"` em src/AskMyDocs.Api " +
+                "(para o Gemini, crie uma chave gratuita em https://aistudio.google.com/apikey).");
         }
 
         var clientOptions = new OpenAIClientOptions();

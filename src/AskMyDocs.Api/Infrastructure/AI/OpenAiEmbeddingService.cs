@@ -45,6 +45,6 @@ public sealed class OpenAiEmbeddingService(IOptions<AiOptions> options) : IEmbed
         vector.Length == ChunkConfiguration.EmbeddingDimensions
             ? vector
             : throw new InvalidOperationException(
-                $"Embedding model '{options.Value.EmbeddingModel}' returned {vector.Length} dimensions, " +
-                $"but the database expects {ChunkConfiguration.EmbeddingDimensions}.");
+                $"O modelo de embeddings '{options.Value.EmbeddingModel}' devolveu {vector.Length} dimensões, " +
+                $"mas o banco espera {ChunkConfiguration.EmbeddingDimensions}.");
 }
