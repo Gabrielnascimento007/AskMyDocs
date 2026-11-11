@@ -1,100 +1,100 @@
 # AskMyDocs
 
-Ask questions about your PDFs and get answers grounded in their content, with citations to the exact file and page.
+Faça perguntas sobre seus PDFs e receba respostas baseadas no conteúdo deles, com citação do arquivo e da página exatos.
 
-AskMyDocs is a **RAG (Retrieval-Augmented Generation)** API built with **.NET 10**, **PostgreSQL + pgvector** and **OpenAI**. Upload a PDF; it is split into chunks, embedded, and indexed. When you ask a question, the most relevant chunks are retrieved by vector similarity and the model answers **using only those excerpts**.
+O AskMyDocs é uma API de **RAG (Retrieval-Augmented Generation)** construída com **.NET 10**, **PostgreSQL + pgvector** e **OpenAI**. Você envia um PDF; ele é dividido em trechos, convertido em embeddings e indexado. Quando você faz uma pergunta, os trechos mais relevantes são recuperados por similaridade vetorial e o modelo responde **usando apenas esses trechos**.
 
-## Features
+## Funcionalidades
 
-- 📄 PDF upload with background processing (the request returns immediately with `202 Accepted`)
-- ✂️ Page-aware chunking with overlap, so context isn't lost at chunk boundaries
-- 🔎 Semantic search with pgvector (HNSW index, cosine distance)
-- 💬 Grounded answers with `[n]` citations, file name and page number for every source
-- 🎯 Optional filter to ask about specific documents only
-- 🌎 Answers in the same language as the question
-- 🛡️ Resilient ingestion: failures are recorded on the document (`Failed` + reason) instead of taking the API down
+- 📄 Upload de PDF com processamento em background (a requisição retorna na hora com `202 Accepted`)
+- ✂️ Divisão em trechos por página, com sobreposição, para não perder contexto nas bordas
+- 🔎 Busca semântica com pgvector (índice HNSW, distância de cosseno)
+- 💬 Respostas fundamentadas com citações `[n]`, nome do arquivo e número da página de cada fonte
+- 🎯 Filtro opcional para perguntar apenas sobre documentos específicos
+- 🌎 Responde no mesmo idioma da pergunta
+- 🛡️ Ingestão resiliente: falhas ficam registradas no documento (`Failed` + motivo) em vez de derrubar a API
 
-## How it works
+## Como funciona
 
 ```mermaid
 flowchart LR
-    subgraph Ingestion
+    subgraph Ingestão
         A[POST /documents] --> B[(documents<br/>status: Processing)]
-        A --> Q[[In-memory queue]]
-        Q --> W[Background worker]
-        W --> P[Extract text per page<br/>PdfPig]
-        P --> C[Split into overlapping chunks]
-        C --> E[Embed chunks<br/>text-embedding-3-small]
+        A --> Q[[Fila em memória]]
+        Q --> W[Worker em background]
+        W --> P[Extrai o texto de cada página<br/>PdfPig]
+        P --> C[Divide em trechos com sobreposição]
+        C --> E[Gera embeddings<br/>text-embedding-3-small]
         E --> V[(chunks + vector 1536)]
         W --> R[status: Ready / Failed]
     end
 
-    subgraph Question
-        U[POST /ask] --> QE[Embed question]
-        QE --> S[Top-K cosine search<br/>HNSW index]
+    subgraph Pergunta
+        U[POST /ask] --> QE[Gera embedding da pergunta]
+        QE --> S[Busca top-K por cosseno<br/>índice HNSW]
         V -.-> S
-        S --> L[LLM answers using<br/>only the excerpts]
-        L --> O[Answer + cited sources]
+        S --> L[LLM responde usando<br/>apenas os trechos]
+        L --> O[Resposta + fontes citadas]
     end
 ```
 
-## Tech stack
+## Tecnologias
 
-| Area | Technology |
+| Área | Tecnologia |
 | --- | --- |
 | API | ASP.NET Core 10 Minimal APIs, OpenAPI |
-| Database | PostgreSQL 17 + [pgvector](https://github.com/pgvector/pgvector), EF Core 10, Npgsql |
-| AI | [OpenAI .NET SDK](https://github.com/openai/openai-dotnet): `text-embedding-3-small` (embeddings), `gpt-4.1-mini` (answers) |
+| Banco de dados | PostgreSQL 17 + [pgvector](https://github.com/pgvector/pgvector), EF Core 10, Npgsql |
+| IA | [OpenAI .NET SDK](https://github.com/openai/openai-dotnet): `text-embedding-3-small` (embeddings), `gpt-4.1-mini` (respostas) |
 | PDF | [PdfPig](https://github.com/UglyToad/PdfPig) |
-| Background work | `System.Threading.Channels` + `BackgroundService` |
-| Tests | xUnit |
+| Processamento em background | `System.Threading.Channels` + `BackgroundService` |
+| Testes | xUnit |
 
-## Getting started
+## Como rodar
 
-### Prerequisites
+### Pré-requisitos
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Docker](https://www.docker.com/) (for PostgreSQL with pgvector)
-- An [OpenAI API key](https://platform.openai.com/api-keys)
+- [Docker](https://www.docker.com/) (para o PostgreSQL com pgvector)
+- Uma [chave de API da OpenAI](https://platform.openai.com/api-keys)
 
-### 1. Start the database
+### 1. Suba o banco de dados
 
 ```bash
 docker compose up -d
 ```
 
-This starts `pgvector/pgvector:pg17` on **host port 5433** (so it doesn't clash with a locally installed PostgreSQL on 5432). The development connection string in `appsettings.Development.json` already points to it.
+Isso sobe o `pgvector/pgvector:pg17` na **porta 5433 do host** (para não conflitar com um PostgreSQL instalado localmente na 5432). A connection string de desenvolvimento em `appsettings.Development.json` já aponta para ele.
 
-### 2. Configure your OpenAI key
+### 2. Configure sua chave da OpenAI
 
 ```bash
 dotnet user-secrets set "OpenAI:ApiKey" "sk-..." --project src/AskMyDocs.Api
 ```
 
-Alternatively, set the `OPENAI_API_KEY` environment variable.
+Outra opção é definir a variável de ambiente `OPENAI_API_KEY`.
 
-> **Heads-up:** user secrets override `appsettings.Development.json`. If you have a `ConnectionStrings:Default` secret (for example, pointing to a hosted database), it will be used instead of the Docker database. Check with `dotnet user-secrets list --project src/AskMyDocs.Api`.
+> **Atenção:** os user secrets têm prioridade sobre o `appsettings.Development.json`. Se existir um secret `ConnectionStrings:Default` (por exemplo, apontando para um banco hospedado), ele será usado no lugar do banco do Docker. Confira com `dotnet user-secrets list --project src/AskMyDocs.Api`.
 
-### 3. Run the API
+### 3. Rode a API
 
 ```bash
 dotnet run --project src/AskMyDocs.Api
 ```
 
-The API listens on `http://localhost:5261`. In Development, EF Core migrations are applied automatically on startup, and the OpenAPI document is served at `/openapi/v1.json`.
+A API escuta em `http://localhost:5261`. Em Development, as migrations do EF Core são aplicadas automaticamente na inicialização, e o documento OpenAPI fica disponível em `/openapi/v1.json`.
 
-## Usage
+## Uso
 
-### Upload a PDF
+### Envie um PDF
 
 ```bash
-curl -F "file=@./handbook.pdf" http://localhost:5261/documents
+curl -F "file=@./manual.pdf" http://localhost:5261/documents
 ```
 
 ```json
 {
   "id": "72518736-d371-49a9-ae81-54941120b45f",
-  "fileName": "handbook.pdf",
+  "fileName": "manual.pdf",
   "status": "Processing",
   "errorMessage": null,
   "chunkCount": 0,
@@ -102,88 +102,88 @@ curl -F "file=@./handbook.pdf" http://localhost:5261/documents
 }
 ```
 
-### Check its status
+### Acompanhe o status
 
 ```bash
 curl http://localhost:5261/documents/72518736-d371-49a9-ae81-54941120b45f
 ```
 
-Wait until `status` is `Ready`. If it is `Failed`, `errorMessage` explains why (e.g. the PDF is a scanned image with no extractable text).
+Aguarde até o `status` ficar `Ready`. Se ficar `Failed`, o `errorMessage` explica o motivo (por exemplo, o PDF é uma imagem escaneada sem texto extraível).
 
-### Ask a question
+### Faça uma pergunta
 
 ```bash
 curl -X POST http://localhost:5261/ask \
   -H "Content-Type: application/json" \
-  -d '{ "question": "How many vacation days do employees get?" }'
+  -d '{ "question": "Quantos dias de férias os funcionários têm?" }'
 ```
 
 ```json
 {
-  "answer": "Employees get 30 vacation days per year [1].",
+  "answer": "Os funcionários têm 30 dias de férias por ano [1].",
   "sources": [
     {
       "index": 1,
       "documentId": "72518736-d371-49a9-ae81-54941120b45f",
-      "fileName": "handbook.pdf",
+      "fileName": "manual.pdf",
       "pageNumber": 1,
-      "excerpt": "The vacation policy grants 30 days per year...",
+      "excerpt": "A política de férias concede 30 dias por ano...",
       "similarity": 0.8123
     }
   ]
 }
 ```
 
-Optional fields: `documentIds` (restrict the search to specific documents) and `topK` (number of excerpts, 1–20, default 5).
+Campos opcionais: `documentIds` (restringe a busca a documentos específicos) e `topK` (quantidade de trechos, de 1 a 20, padrão 5).
 
-You can also use [`AskMyDocs.Api.http`](src/AskMyDocs.Api/AskMyDocs.Api.http) from Visual Studio, Rider or VS Code (REST Client).
+Você também pode usar o arquivo [`AskMyDocs.Api.http`](src/AskMyDocs.Api/AskMyDocs.Api.http) no Visual Studio, Rider ou VS Code (REST Client).
 
-## API reference
+## Referência da API
 
-| Method | Route | Description |
+| Método | Rota | Descrição |
 | --- | --- | --- |
-| `POST` | `/documents` | Upload a PDF (`multipart/form-data`, field `file`, max 20 MB). Returns `202`. |
-| `GET` | `/documents` | List documents with status and chunk count. |
-| `GET` | `/documents/{id}` | Get a document and its processing status. |
-| `DELETE` | `/documents/{id}` | Delete a document and its chunks. |
-| `POST` | `/ask` | Ask a question: `{ question, documentIds?, topK? }`. |
+| `POST` | `/documents` | Envia um PDF (`multipart/form-data`, campo `file`, máx. 20 MB). Retorna `202`. |
+| `GET` | `/documents` | Lista os documentos com status e quantidade de trechos. |
+| `GET` | `/documents/{id}` | Retorna um documento e o status do processamento. |
+| `DELETE` | `/documents/{id}` | Remove um documento e seus trechos. |
+| `POST` | `/ask` | Faz uma pergunta: `{ question, documentIds?, topK? }`. |
 
-Validation errors are returned as `400` [Problem Details](https://www.rfc-editor.org/rfc/rfc9457).
+Erros de validação são retornados como `400` no formato [Problem Details](https://www.rfc-editor.org/rfc/rfc9457).
 
-## Configuration
+## Configuração
 
-| Key | Default | Description |
+| Chave | Padrão | Descrição |
 | --- | --- | --- |
-| `ConnectionStrings:Default` | Docker DB (Development) | PostgreSQL connection string. |
-| `OpenAI:ApiKey` | — | OpenAI API key (or `OPENAI_API_KEY`). |
-| `OpenAI:ChatModel` | `gpt-4.1-mini` | Model used to write answers. |
-| `OpenAI:EmbeddingModel` | `text-embedding-3-small` | Embedding model (vectors have 1536 dimensions). |
+| `ConnectionStrings:Default` | Banco do Docker (Development) | Connection string do PostgreSQL. |
+| `OpenAI:ApiKey` | — | Chave da API da OpenAI (ou `OPENAI_API_KEY`). |
+| `OpenAI:ChatModel` | `gpt-4.1-mini` | Modelo que escreve as respostas. |
+| `OpenAI:EmbeddingModel` | `text-embedding-3-small` | Modelo de embeddings (vetores de 1536 dimensões). |
 
-## Project structure
+## Estrutura do projeto
 
 ```
 src/AskMyDocs.Api
-├── Domain/                     # Document and Chunk entities
+├── Domain/                     # Entidades Document e Chunk
 ├── Features/
-│   ├── Documents/              # Upload, list, get, delete endpoints
-│   └── Ask/                    # Retrieval + answer generation endpoint
-├── Ingestion/                  # PDF extraction, chunking, queue and worker
+│   ├── Documents/              # Endpoints de upload, listagem, consulta e remoção
+│   └── Ask/                    # Endpoint de busca + geração da resposta
+├── Ingestion/                  # Extração do PDF, divisão em trechos, fila e worker
 └── Infrastructure/
-    ├── AI/                     # OpenAI embedding and chat services
-    └── Persistence/            # DbContext, EF configurations, migrations
-tests/AskMyDocs.Api.Tests       # Unit tests (chunking, PDF extraction)
+    ├── AI/                     # Serviços de embeddings e chat da OpenAI
+    └── Persistence/            # DbContext, configurações do EF e migrations
+tests/AskMyDocs.Api.Tests       # Testes unitários (divisão em trechos, extração de PDF)
 ```
 
-## Running the tests
+## Rodando os testes
 
 ```bash
 dotnet test
 ```
 
-## Limitations and next steps
+## Limitações e próximos passos
 
-- **In-memory queue:** pending uploads are lost if the API restarts. Those documents are marked `Failed` on startup, so you can upload them again. A durable queue (or storing the file) would fix this.
-- **No OCR:** scanned PDFs (images only) have no extractable text and end up as `Failed`.
-- **No authentication:** every document is visible to every caller.
-- **Single-turn questions:** there is no conversation history yet.
-- Possible improvements: answer streaming, hybrid search (full-text + vector), reranking, and a simple web UI.
+- **Fila em memória:** uploads pendentes se perdem se a API reiniciar. Esses documentos são marcados como `Failed` na inicialização, para que você possa enviá-los de novo. Uma fila durável (ou guardar o arquivo) resolveria isso.
+- **Sem OCR:** PDFs escaneados (só imagem) não têm texto extraível e terminam como `Failed`.
+- **Sem autenticação:** qualquer pessoa que chama a API vê todos os documentos.
+- **Perguntas isoladas:** ainda não há histórico de conversa.
+- Melhorias possíveis: streaming das respostas, busca híbrida (texto completo + vetorial), reranking e uma interface web simples.
