@@ -4,6 +4,7 @@ using AskMyDocs.Api.Features.Documents;
 using AskMyDocs.Api.Infrastructure.AI;
 using AskMyDocs.Api.Infrastructure.Persistence;
 using AskMyDocs.Api.Ingestion;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,10 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    // Interactive API docs at /scalar, where you can upload PDFs and ask questions.
+    app.MapScalarApiReference(options => options.WithTitle("AskMyDocs"));
+    app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
 }
 
 app.UseHttpsRedirection();
